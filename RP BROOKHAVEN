@@ -2083,3 +2083,319 @@ Tab5:AddButton({Name="🚗 Deletar Todos os Carros",Callback=function()
     end)
     Notify("Car","Todos os carros deletados!",3)
 end})
+
+----------------------------------------------------------------
+-- FUNCOES DO LYNIX HUB (adicionadas nas abas corretas)
+----------------------------------------------------------------
+
+-- ============================================================
+-- Tab4 - HOUSE: Remover ban + Permissao na casa
+-- ============================================================
+
+Tab4:AddSection({"Funcoes de Casa Extras (Lynix)"})
+
+Tab4:AddButton({
+    Name="🔓 Remover Ban de Todas as Casas",
+    Description="Tenta destruir os BannedBlocks de todas as casas",
+    Callback=function()
+        local successCount = 0
+        local failCount = 0
+        for i=1,37 do
+            local bannedBlock = workspace:FindFirstChild("BannedBlock"..i,true)
+            if bannedBlock then
+                local ok,_ = pcall(function() bannedBlock:Destroy() end)
+                if ok then successCount+=1 else failCount+=1 end
+            end
+        end
+        for _,house in pairs(workspace:GetDescendants()) do
+            if house.Name:match("BannedBlock") then
+                local ok,_ = pcall(function() house:Destroy() end)
+                if ok then successCount+=1 else failCount+=1 end
+            end
+        end
+        if successCount > 0 then
+            Notify("Sucesso","Bans removidos de "..successCount.." casas!",5)
+        elseif failCount > 0 then
+            Notify("Aviso","Falha em "..failCount.." casas.",5)
+        else
+            Notify("Aviso","Nenhum ban encontrado.",5)
+        end
+    end
+})
+
+Tab4:AddTextBox({
+    Name="Ganhar Permissao na Casa",
+    Description="Digite o nome do jogador para tentar ganhar permissao",
+    PlaceholderText="Nome do jogador...",
+    Callback=function(Value)
+        if Value=="" then return end
+        local targetPlayer = Players:FindFirstChild(Value)
+        if not targetPlayer then Notify("Erro","Jogador '"..Value.."' nao encontrado.",5) return end
+        local lotsFolder = workspace:FindFirstChild("001_Lots")
+        if not lotsFolder then Notify("Erro","Pasta de lotes nao encontrada.",5) return end
+        local found = false
+        for _,lot in pairs(lotsFolder:GetChildren()) do
+            local housePicked = lot:FindFirstChild("HousePickedByPlayer")
+            if housePicked then
+                local ownerValue = housePicked:FindFirstChild("Owner")
+                    or housePicked:FindFirstChild("HouseOwner")
+                    or housePicked:FindFirstChild("CurrentOwner")
+                if ownerValue and (ownerValue.Value==Value or lot.Name:find(Value)) then
+                    local houseModel = housePicked:FindFirstChild("HouseModel")
+                    if houseModel then
+                        local permissions = houseModel:FindFirstChild("Permissions")
+                        if permissions and permissions:FindFirstChild("AddRoommate") then
+                            pcall(function()
+                                permissions.AddRoommate:FireServer(targetPlayer)
+                            end)
+                            Notify("Permissao","Permissao adicionada na casa de "..Value,5)
+                            found = true
+                        end
+                    end
+                end
+            end
+        end
+        if not found then
+            Notify("Falha","Casa de "..Value.." nao encontrada.",5)
+        end
+    end
+})
+
+-- ============================================================
+-- Tab9 - TROLL: Kill Bus melhorado + Ball Fling + Piggyback
+-- ============================================================
+
+Tab9:AddSection({"Funcoes de Kill Extras (Lynix)"})
+
+-- Kill com Bus melhorado (Lynix)
+Tab9:AddButton({
+    Name="🚌 Kill Bus (Lynix - Melhorado)",
+    Description="Bus com rotacao agressiva e fling para void",
+    Callback=function()
+        if not selectedPlayerName then Notify("Erro","Selecione um jogador!",3) return end
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if not targetPlayer or not targetPlayer.Character then Notify("Erro","Player sem personagem.",3) return end
+
+        local character = localPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local myHRP = character and character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not myHRP then return end
+
+        local savedPos = myHRP.Position
+
+        -- Teleporta para spawn do bus
+        pcall(function()
+            myHRP.Anchored = true
+            myHRP.CFrame = CFrame.new(1181.83,76.08,-1158.83)
+            task.wait(0.2)
+            myHRP.Velocity = Vector3.zero
+            myHRP.RotVelocity = Vector3.zero
+            myHRP.Anchored = false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end)
+        task.wait(0.5)
+
+        -- Pega bus
+        pcall(function()
+            ReplicatedStorage.RE["1Ca1r"]:FireServer("DeleteAllVehicles")
+        end)
+        task.wait(0.2)
+        pcall(function()
+            ReplicatedStorage.RE["1Ca1r"]:FireServer("PickingCar","SchoolBus")
+        end)
+        task.wait(1)
+
+        local vehiclesFolder = workspace:FindFirstChild("Vehicles")
+        if not vehiclesFolder then Notify("Erro","Vehicles nao encontrado.",3) return end
+        local bus = vehiclesFolder:FindFirstChild(localPlayer.Name.."Car")
+        if not bus then Notify("Erro","Bus nao spawnado.",3) return end
+
+        -- Senta no bus
+        pcall(function()
+            myHRP.Anchored = true
+            myHRP.CFrame = CFrame.new(1171.15,79.45,-1166.2)
+            task.wait(0.2)
+            myHRP.Velocity = Vector3.zero
+            myHRP.RotVelocity = Vector3.zero
+            myHRP.Anchored = false
+            humanoid:ChangeState(Enum.HumanoidStateType.Seated)
+        end)
+
+        local sitStart = tick()
+        repeat task.wait() until humanoid.Sit or tick()-sitStart > 10
+        if not humanoid.Sit then Notify("Erro","Nao conseguiu sentar no bus.",3) return end
+
+        -- Noclip do bus
+        for _,part in ipairs(bus:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+
+        local lynixBusRunning = true
+        local lynixConn = nil
+        local startTime = tick()
+        local updateInterval = 0.03
+
+        lynixConn = RunService.Heartbeat:Connect(function()
+            if not lynixBusRunning then return end
+            local tChar = targetPlayer.Character
+            local tHRP = tChar and tChar:FindFirstChild("HumanoidRootPart")
+            local tHum = tChar and tChar:FindFirstChildOfClass("Humanoid")
+            if not tHRP or not tHum then return end
+
+            -- Move bus com rotacao agressiva em volta do alvo
+            local offset = Vector3.new(math.random(-5,5),0,math.random(-5,5))
+            pcall(function()
+                bus:PivotTo(
+                    CFrame.new(tHRP.Position + offset) *
+                    CFrame.Angles(
+                        math.rad(workspace.DistributedGameTime * 15000),
+                        math.rad(workspace.DistributedGameTime * 18000),
+                        math.rad(workspace.DistributedGameTime * 20000)
+                    )
+                )
+            end)
+
+            -- Verifica se alvo sentou
+            local playerSeated = false
+            for _,seat in ipairs(bus:GetDescendants()) do
+                if (seat:IsA("Seat") or seat:IsA("VehicleSeat")) and seat.Name~="VehicleSeat" then
+                    if seat.Occupant == tHum then playerSeated=true break end
+                end
+            end
+
+            if playerSeated or tick()-startTime > 8 then
+                lynixBusRunning = false
+                if lynixConn then lynixConn:Disconnect() end
+
+                -- Joga bus no void
+                pcall(function() bus:PivotTo(CFrame.new(0,-1000,0)) end)
+                task.wait(0.3)
+
+                pcall(function()
+                    ReplicatedStorage.RE["1Ca1r"]:FireServer("DeleteAllVehicles")
+                end)
+
+                -- Volta player para posicao original
+                task.wait(0.3)
+                pcall(function()
+                    myHRP.Anchored = true
+                    myHRP.CFrame = CFrame.new(savedPos + Vector3.new(0,5,0))
+                    task.wait(0.2)
+                    myHRP.Velocity = Vector3.zero
+                    myHRP.RotVelocity = Vector3.zero
+                    myHRP.Anchored = false
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end)
+                for _,part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                        part.Velocity = Vector3.zero
+                        part.RotVelocity = Vector3.zero
+                    end
+                end
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated,true)
+                Notify("Kill Bus Lynix","Kill executado!",3)
+            end
+        end)
+
+        -- Timeout de seguranca
+        task.spawn(function()
+            task.wait(15)
+            if lynixBusRunning then
+                lynixBusRunning = false
+                if lynixConn then lynixConn:Disconnect() end
+                pcall(function() ReplicatedStorage.RE["1Ca1r"]:FireServer("DeleteAllVehicles") end)
+                Notify("Bus","Timeout - bus deletado.",3)
+            end
+        end)
+
+        Notify("Kill Bus Lynix","Bus ativado! Aguarde...",4)
+    end
+})
+
+-- Ball Fling (Lynix - spam de bola para void)
+Tab9:AddButton({
+    Name="⚽ Ball Void Kill (Lynix - Spam)",
+    Description="Spam de bola para jogar player no void",
+    Callback=function()
+        if not selectedPlayerName then Notify("Erro","Selecione um jogador!",3) return end
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if not targetPlayer or not targetPlayer.Character then Notify("Erro","Player sem personagem.",3) return end
+
+        -- Equipa bola
+        local backpack = localPlayer:WaitForChild("Backpack")
+        if not backpack:FindFirstChild("SoccerBall") then
+            pcall(function()
+                ReplicatedStorage.RE["1Too1l"]:InvokeServer("PickingTools","SoccerBall")
+            end)
+            local waited = 0
+            repeat task.wait(0.1); waited+=0.1 until backpack:FindFirstChild("SoccerBall") or waited >= 3
+        end
+        local bola = backpack:FindFirstChild("SoccerBall")
+        if bola then bola.Parent = localPlayer.Character end
+        task.wait(0.3)
+
+        -- Remove tool para spawnar bola no workspace
+        pcall(function()
+            ReplicatedStorage.RE["1Clea1rTool1s"]:FireServer("PlayerWantsToDeleteTool","SoccerBall")
+        end)
+        task.wait(0.3)
+
+        local workspaceCom = workspace:FindFirstChild("WorkspaceCom")
+        local soccerBalls = workspaceCom and workspaceCom:FindFirstChild("001_SoccerBalls")
+        if not soccerBalls then Notify("Erro","SoccerBalls nao encontrado.",3) return end
+        local ball = soccerBalls:FindFirstChild("Soccer"..localPlayer.Name)
+        if not ball then Notify("Erro","Bola nao encontrada.",3) return end
+
+        ball.Anchored = false
+        ball.CanCollide = true
+
+        -- Spam 20 throws com velocity para void
+        for i=1,20 do
+            local tHRP = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if tHRP then
+                ball.CFrame = CFrame.new(tHRP.Position + Vector3.new(0,5,0))
+                ball.AssemblyLinearVelocity = Vector3.new(math.random(-200,200),-500000,math.random(-200,200))
+                -- Tenta usar o FootballInteraction se disponivel
+                local fbInteraction = localPlayer.Character and localPlayer.Character:FindFirstChild("SoccerBall")
+                    and localPlayer.Character.SoccerBall:FindFirstChild("FootballInteraction")
+                if fbInteraction then
+                    pcall(function()
+                        fbInteraction:FireServer(CFrame.new(tHRP.Position + Vector3.new(0,5,0)))
+                    end)
+                end
+            end
+            task.wait(0.05)
+        end
+        Notify("Ball Void Kill","Bola spammada no "..selectedPlayerName.."!",3)
+    end
+})
+
+-- Piggyback Kill (Lynix)
+Tab9:AddButton({
+    Name="🐷 Piggyback Kill",
+    Description="Envia request de piggyback e joga no void",
+    Callback=function()
+        if not selectedPlayerName then Notify("Erro","Selecione um jogador!",3) return end
+        local targetPlayer = Players:FindFirstChild(selectedPlayerName)
+        if not targetPlayer then Notify("Erro","Player nao encontrado.",3) return end
+
+        pcall(function()
+            ReplicatedStorage.RE["1Playe1rTrigge1rEven1t"]:FireServer(
+                "Client2Client",
+                "Request: Piggyback!",
+                targetPlayer
+            )
+        end)
+        task.wait(0.3)
+
+        local myHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            pcall(function()
+                myHRP.CFrame = CFrame.new(0,-500,0)
+                myHRP.AssemblyLinearVelocity = Vector3.new(0,-100000,0)
+            end)
+        end
+        Notify("Piggyback Kill",selectedPlayerName.." puxado para o void!",3)
+    end
+})
