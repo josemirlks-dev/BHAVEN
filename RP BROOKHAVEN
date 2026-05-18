@@ -822,26 +822,90 @@ end})
 ----------------------------------------------------------------
 -- TAB 7: MUSIC ALL
 ----------------------------------------------------------------
-Tab7:AddSection({"Player de Musicas"})
+Tab7:AddSection({"🎵 Phonk"})
 
 local curSnd7 = nil
+local curSndName = ""
 
-local musicList = {
-    {name="Phonk Drive",      id="1837853118"},
-    {name="Lo-fi Chill Beat", id="1843418030"},
+-- Funcao interna para tocar musica
+local function tocarMusica(id, nome)
+    if curSnd7 then curSnd7:Stop(); curSnd7:Destroy(); curSnd7=nil end
+    local s = Instance.new("Sound")
+    s.SoundId = "rbxassetid://"..id
+    s.Volume = 0.5
+    s.Looped = true
+    s.Parent = SoundService
+    s:Play()
+    curSnd7 = s
+    curSndName = nome
+
+    -- Toca tambem via RemoteEvent do Brookhaven (ToolMusicText)
+    pcall(function()
+        ReplicatedStorage.RE.PlayerToolEvent:FireServer("ToolMusicText", id, true)
+    end)
+    -- Toca na scooter tambem
+    pcall(function()
+        ReplicatedStorage.RE:FindFirstChild("1NoMoto1rVehicle1s"):FireServer("PickingScooterMusicText", id)
+    end)
+    -- Toca no carro e casa
+    pcall(function()
+        ReplicatedStorage.RE:FindFirstChild("1Player1sCa1r"):FireServer("PickingCarMusicText", id)
+        ReplicatedStorage.RE:FindFirstChild("1Player1sHous1e"):FireServer("PickHouseMusicText", id)
+    end)
+
+    Notify("🎵 Tocando", nome, 4)
+end
+
+local musicListPhonk = {
+    {name="Phonk Drive",                    id="1837853118"},
+    {name="Hardcore Drift Phonk",           id="93202214051700"},
+    {name="MATADORA Phonk",                 id="100472207006460"},
+    {name="Raging Phonk Blood",             id="80650419746306"},
+    {name="Beauty Phonk Sped Up",           id="71123357599630"},
 }
 
-for _,m in ipairs(musicList) do
-    Tab7:AddButton({Name="▶  "..m.name,Callback=function()
-        if curSnd7 then curSnd7:Stop(); curSnd7:Destroy(); curSnd7=nil end
-        local s=Instance.new("Sound"); s.SoundId="rbxassetid://"..m.id
-        s.Volume=0.5; s.Looped=true; s.Parent=SoundService; s:Play()
-        curSnd7=s; Notify("🎵",m.name,3)
+for _,m in ipairs(musicListPhonk) do
+    Tab7:AddButton({Name="▶  "..m.name, Callback=function()
+        tocarMusica(m.id, m.name)
     end})
 end
 
-Tab7:AddButton({Name="⏹ Parar",Callback=function()
+Tab7:AddSection({"🎵 Funk / Forro"})
+
+local musicListFunk = {
+    {name="Lembro Ate Hoje (Forro)",        id="71531533552899"},
+    {name="Esquema Confirmado (Arrocha)",    id="134035788881796"},
+    {name="1008-1 CLARK",                   id="135753402272482"},
+    {name="1008",                           id="107460735545869"},
+    {name="Text to Speech",                 id="72348469113235"},
+    {name="So Uma Su",                      id="122259510323980"},
+    {name="Tropa",                          id="76260463454427"},
+    {name="Homenagem MC",                   id="126578702032014"},
+    {name="Bob",                            id="117319578838604"},
+    {name="Vai Rebo",                       id="120075559226752"},
+    {name="Cadeira",                        id="96888228525073"},
+    {name="DOR FUNK (2026)",                id="100472207006460"},
+    {name="Invincible Brazilian Funk 2026", id="71531533552899"},
+}
+
+for _,m in ipairs(musicListFunk) do
+    Tab7:AddButton({Name="▶  "..m.name, Callback=function()
+        tocarMusica(m.id, m.name)
+    end})
+end
+
+Tab7:AddSection({"⏹ Controles"})
+
+Tab7:AddButton({Name="⏹ Parar Musica",Callback=function()
     if curSnd7 then curSnd7:Stop(); curSnd7:Destroy(); curSnd7=nil end
+    -- Para tambem no carro/casa/scooter
+    pcall(function()
+        ReplicatedStorage.RE.PlayerToolEvent:FireServer("ToolMusicText","",true)
+        ReplicatedStorage.RE:FindFirstChild("1NoMoto1rVehicle1s"):FireServer("PickingScooterMusicText","")
+        ReplicatedStorage.RE:FindFirstChild("1Player1sCa1r"):FireServer("PickingCarMusicText","")
+        ReplicatedStorage.RE:FindFirstChild("1Player1sHous1e"):FireServer("PickHouseMusicText","")
+    end)
+    Notify("⏹","Musica parada.",2)
 end})
 
 Tab7:AddSlider({Name="Volume",Increase=1,MinValue=0,MaxValue=100,Default=50,Callback=function(v)
@@ -853,18 +917,51 @@ end})
 ----------------------------------------------------------------
 Tab8:AddSection({"Tocar por ID"})
 
-local curSnd8 = nil
+Tab8:AddParagraph({"Como usar","Cole o ID e pressione Enter. Toca no carro, casa, scooter e localmente!"})
 
-Tab8:AddTextBox({Name="ID da Musica",PlaceholderText="Cole o ID aqui...",Callback=function(v)
-    if v=="" then return end
+local curSnd8 = nil
+local lastMusicId8 = ""
+
+local function tocarMusicaID(v)
+    if v == "" then return end
+    lastMusicId8 = v
     if curSnd8 then curSnd8:Stop(); curSnd8:Destroy(); curSnd8=nil end
-    local s=Instance.new("Sound"); s.SoundId="rbxassetid://"..v
-    s.Volume=0.5; s.Looped=true; s.Parent=SoundService; s:Play()
-    curSnd8=s; Notify("🎵","Tocando ID: "..v,3)
+    local s = Instance.new("Sound")
+    s.SoundId = "rbxassetid://"..v
+    s.Volume = 0.5
+    s.Looped = true
+    s.Parent = SoundService
+    s:Play()
+    curSnd8 = s
+    -- Remote correto do Brookhaven
+    pcall(function() ReplicatedStorage.RE.PlayerToolEvent:FireServer("ToolMusicText", v, true) end)
+    -- Scooter
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1NoMoto1rVehicle1s"):FireServer("PickingScooterMusicText", v) end)
+    -- Carro e Casa
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1Player1sCa1r"):FireServer("PickingCarMusicText", v) end)
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1Player1sHous1e"):FireServer("PickHouseMusicText", v) end)
+    Notify("Tocando", "ID: "..v, 4)
+end
+
+Tab8:AddTextBox({
+    Name = "ID da Musica",
+    Description = "Funciona no carro, casa, scooter e localmente",
+    PlaceholderText = "Cole o ID aqui...",
+    Callback = function(v) tocarMusicaID(v) end
+})
+
+Tab8:AddButton({Name="Tocar Novamente", Description="Retoca o ultimo ID digitado", Callback=function()
+    if lastMusicId8 ~= "" then tocarMusicaID(lastMusicId8)
+    else Notify("Aviso","Nenhum ID digitado ainda.",3) end
 end})
 
-Tab8:AddButton({Name="⏹ Parar",Callback=function()
+Tab8:AddButton({Name="Parar Musica", Callback=function()
     if curSnd8 then curSnd8:Stop(); curSnd8:Destroy(); curSnd8=nil end
+    pcall(function() ReplicatedStorage.RE.PlayerToolEvent:FireServer("ToolMusicText","",true) end)
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1NoMoto1rVehicle1s"):FireServer("PickingScooterMusicText","") end)
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1Player1sCa1r"):FireServer("PickingCarMusicText","") end)
+    pcall(function() ReplicatedStorage.RE:FindFirstChild("1Player1sHous1e"):FireServer("PickHouseMusicText","") end)
+    Notify("Parado","Musica parada.",2)
 end})
 
 Tab8:AddSlider({Name="Volume",Increase=1,MinValue=0,MaxValue=100,Default=50,Callback=function(v)
@@ -874,6 +971,53 @@ end})
 ----------------------------------------------------------------
 -- TAB 9: TROLL
 ----------------------------------------------------------------
+Tab9:AddSection({"Selecionar Player (Troll)"})
+
+-- Busca de player igual a aba Fun, mas separada para o Troll
+local trollSelectedPlayer = nil
+
+local function findPlayerTroll(partial)
+    partial = partial:lower()
+    for _,p in pairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Name:lower():find(partial, 1, true) then return p end
+    end
+    return nil
+end
+
+Tab9:AddTextBox({
+    Name = "Buscar Jogador",
+    Description = "Digite parte do nome",
+    PlaceholderText = "Nome do player...",
+    Callback = function(v)
+        local found = findPlayerTroll(v)
+        if found then
+            trollSelectedPlayer = found
+            selectedPlayerName = found.Name -- sincroniza com a variavel global
+            local img,_ = Players:GetUserThumbnailAsync(found.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            Notify("Selecionado", found.Name, 4)
+        else
+            Notify("Erro","Jogador nao encontrado.",3)
+        end
+    end
+})
+
+Tab9:AddDropdown({
+    Name = "Ou escolha da lista",
+    Default = "",
+    Options = (function()
+        local t = {}
+        for _,p in pairs(Players:GetPlayers()) do
+            if p ~= localPlayer then table.insert(t, p.Name) end
+        end
+        return t
+    end)(),
+    Callback = function(v)
+        trollSelectedPlayer = Players:FindFirstChild(v)
+        selectedPlayerName = v
+        Notify("Selecionado", v, 3)
+    end
+})
+
 Tab9:AddSection({"Player Selecionado na Aba Fun"})
 
 -- Kill Player via dano local
@@ -950,6 +1094,110 @@ Tab9:AddButton({Name="📍 Trazer Player para Mim",Callback=function()
         Notify("Troll",selectedPlayerName.." trazido!",3)
     end
 end})
+
+Tab9:AddSection({"Bola (Troll)"})
+
+-- Bola girando na pessoa - parece que eh bom no fut mas eh troll
+local bolaGirando = false
+local bolaConn = nil
+
+Tab9:AddToggle({
+    Name = "Bola Girando no Player",
+    Description = "A bola fica grudada na pessoa parecendo que voce joga bem",
+    Default = false,
+    Callback = function(v)
+        bolaGirando = v
+        if v then
+            if not selectedPlayerName then
+                Notify("Erro","Selecione um jogador!",3)
+                bolaGirando = false
+                return
+            end
+
+            -- Equipa a bola
+            local backpack = localPlayer:WaitForChild("Backpack")
+            if not backpack:FindFirstChild("SoccerBall") then
+                pcall(function()
+                    ReplicatedStorage.RE:FindFirstChild("1Too1l"):InvokeServer("PickingTools","SoccerBall")
+                end)
+                local t = 0
+                repeat task.wait(0.1); t+=0.1 until backpack:FindFirstChild("SoccerBall") or t >= 3
+            end
+            local bola = backpack:FindFirstChild("SoccerBall")
+            if bola then bola.Parent = localPlayer.Character end
+            task.wait(0.3)
+
+            -- Pega a bola no workspace
+            pcall(function()
+                ReplicatedStorage.RE["1Clea1rTool1s"]:FireServer("PlayerWantsToDeleteTool","SoccerBall")
+            end)
+            task.wait(0.3)
+
+            local workspaceCom = workspace:FindFirstChild("WorkspaceCom")
+            local soccerBalls = workspaceCom and workspaceCom:FindFirstChild("001_SoccerBalls")
+            if not soccerBalls then
+                Notify("Erro","SoccerBalls nao encontrado.",3)
+                bolaGirando = false
+                return
+            end
+            local ball = soccerBalls:FindFirstChild("Soccer"..localPlayer.Name)
+            if not ball then
+                Notify("Erro","Bola nao encontrada.",3)
+                bolaGirando = false
+                return
+            end
+
+            ball.Anchored = false
+            ball.CanCollide = false
+            ball.Massless = true
+
+            local angle = 0
+            local bounce = 0
+            local radius = 3
+
+            bolaConn = RunService.Heartbeat:Connect(function(dt)
+                if not bolaGirando then
+                    if bolaConn then bolaConn:Disconnect(); bolaConn = nil end
+                    return
+                end
+                local target = Players:FindFirstChild(selectedPlayerName)
+                if not target or not target.Character then return end
+                local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                if not tHRP then return end
+
+                -- Gira em orbita ao redor da pessoa
+                angle = angle + dt * 4
+                bounce = bounce + dt * 6
+
+                -- Posicao em orbita com quique
+                local orbitX = math.cos(angle) * radius
+                local orbitZ = math.sin(angle) * radius
+                local bouncY = math.abs(math.sin(bounce)) * 2 -- quica no chao
+
+                local targetPos = tHRP.Position + Vector3.new(orbitX, bouncY, orbitZ)
+                ball.CFrame = CFrame.new(targetPos)
+
+                -- Rotaciona a bola (parece driblar)
+                ball.CFrame = ball.CFrame * CFrame.Angles(dt*10, dt*8, dt*6)
+
+                -- Manda o FootballInteraction de vez em quando (parece chute)
+                if math.floor(tick() * 2) % 3 == 0 then
+                    pcall(function()
+                        local fb = localPlayer.Character and localPlayer.Character:FindFirstChild("SoccerBall")
+                        if fb and fb:FindFirstChild("FootballInteraction") then
+                            fb.FootballInteraction:FireServer(CFrame.new(tHRP.Position))
+                        end
+                    end)
+                end
+            end)
+
+            Notify("Bola","Bola girando no player! Parece fut mas eh troll",4)
+        else
+            if bolaConn then bolaConn:Disconnect(); bolaConn = nil end
+            Notify("Bola","Bola parada.",2)
+        end
+    end
+})
 
 Tab9:AddSection({"Kill Bus & Mapa"})
 
